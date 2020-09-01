@@ -31,10 +31,10 @@ func (f *failover) init() {
 	f.failoverDir = path.Join(f.ns.c.config.CacheDir, "/failover")
 	info, err := os.Stat(f.failoverDir)
 	if os.IsNotExist(err) {
-		os.MkdirAll(f.failoverDir, os.ModeDir)
+		os.MkdirAll(f.failoverDir, 0666)
 	} else if !info.IsDir() {
 		os.Remove(f.failoverDir)
-		os.MkdirAll(f.failoverDir, os.ModeDir)
+		os.MkdirAll(f.failoverDir, 0666)
 	}
 	go func(f *failover) {
 		t := time.NewTicker(time.Second * 5)
@@ -83,6 +83,9 @@ func (f *failover) switchRefresher() {
 	switchFile, err := os.Stat(path.Join(f.failoverDir, failoverSwitchFile))
 	if os.IsNotExist(err) {
 		f.failoverMode = false
+		return
+	} else if err != nil {
+		f.ns.c.Logger().Error("error read failover switch file. %+v", err)
 		return
 	}
 	modified := switchFile.ModTime()
