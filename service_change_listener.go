@@ -1,7 +1,6 @@
 package nacos
 
 import (
-	"context"
 	"sync"
 )
 
@@ -11,20 +10,19 @@ type EventListener interface {
 
 type serviceChangeListener struct {
 	sync.Mutex
-	ctx         context.Context
-	stop        context.CancelFunc
+	ns          *namingClient
 	ch          chan *ServiceInfo
 	observerMap map[string][]EventListener
 }
 
-func newServiceChangeListener() *serviceChangeListener {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &serviceChangeListener{
-		ctx:         ctx,
-		stop:        cancel,
+func newServiceChangeListener(ns *namingClient) *serviceChangeListener {
+	l := &serviceChangeListener{
+		ns:          ns,
 		ch:          make(chan *ServiceInfo, 0),
 		observerMap: make(map[string][]EventListener),
 	}
+	go l.observe()
+	return l
 }
 
 func (l *serviceChangeListener) addListener(serviceInfo *ServiceInfo, clusters string, listener EventListener) {
@@ -68,19 +66,22 @@ func (l *serviceChangeListener) serviceChange(serviceInfo *ServiceInfo) {
 	l.ch <- serviceInfo
 }
 
-func (l *serviceChangeListener) shutdown() {
-	l.stop()
-}
-
 func (l *serviceChangeListener) observe() {
 	for {
 		select {
-		case <-l.ctx.Done():
+		case <-l.ns.c.ctx.Done():
 			return
 		case s := <-l.ch:
 			if v, ok := l.observerMap[s.GetKey()]; ok {
 				for _, listener := range v {
-					listener.OnEvent(s)
+					func(s *ServiceInfo) {
+						defer func() {
+							if err := recover(); err != nil {
+								l.ns.c.Logger().Error("[RECOVER] notify err for service: %s, clusters: %v, %v", s.Name, s.Clusters, err)
+							}
+						}()
+						listener.OnEvent(s)
+					}(s)
 				}
 			}
 		}

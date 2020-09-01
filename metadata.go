@@ -11,11 +11,13 @@ const (
 	metaKeyHeartBeatIntervalDefault = time.Second * 5
 )
 
+// Metadata service metadata
 type Metadata struct {
 	sync.Mutex
 	m map[string]string
 }
 
+// NewMetadata returns a metadata instance with default value
 func NewMetadata(m map[string]string) *Metadata {
 	if m == nil {
 		m = make(map[string]string)

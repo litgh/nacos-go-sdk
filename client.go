@@ -84,6 +84,7 @@ func (c *client) Naming() NamingClient {
 	ns.pushReceiver = newPushRecevier(ns)
 	ns.failover = newFailover(ns)
 	ns.heartbeat = newHeartbeat(ns)
+	ns.listeners = newServiceChangeListener(ns)
 	go func(ns *namingClient) {
 		t := time.NewTicker(time.Second * 30)
 		for {
@@ -272,6 +273,7 @@ func (r *Request) toHTTPRequest(host string) (*http.Request, error) {
 }
 
 func (c *client) DoRequest(r *Request) (resp *http.Response, err error) {
+	r.header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c.config.Namespace != "" {
 		r.params.Set("namespaceId", c.config.Namespace)
 	}

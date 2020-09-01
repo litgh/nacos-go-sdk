@@ -11,14 +11,14 @@ import (
 var beatSignal = struct{}{}
 
 type heartbeat struct {
-	nc               *namingClient
+	ns               *namingClient
 	dom2Beat         map[string]*beat
 	lightBeatEnabled bool
 }
 
-func newHeartbeat(nc *namingClient) *heartbeat {
+func newHeartbeat(ns *namingClient) *heartbeat {
 	return &heartbeat{
-		nc:       nc,
+		ns:       ns,
 		dom2Beat: make(map[string]*beat),
 	}
 }
@@ -63,7 +63,7 @@ func (h *heartbeat) addBeat(beatInfo *beat) {
 		b.stop()
 		delete(h.dom2Beat, key)
 	}
-
+	h.ns.c.Logger().Info("Add beat info: %s %s:%s", beatInfo.serviceName, beatInfo.ip, beatInfo.port)
 	h.dom2Beat[key] = beatInfo
 	ctx, cancel := context.WithCancel(context.Background())
 	beatInfo.stop = cancel
@@ -84,13 +84,14 @@ func (h *heartbeat) addBeat(beatInfo *beat) {
 func (h *heartbeat) removeBeat(serviceName, ip string, port int) {
 	key := buildKey(serviceName, ip, port)
 	if beatInfo, ok := h.dom2Beat[key]; ok {
+		h.ns.c.Logger().Info("Remove beat info: %s %s:%s", beatInfo.serviceName, beatInfo.ip, beatInfo.port)
 		beatInfo.stop()
 	}
 }
 
 func (h *heartbeat) sendBeat(beat *beat) {
-	r := h.nc.NewRequest(PUT, "/instance/beat")
-	r.params.Set("namespaceId", h.nc.c.config.Namespace)
+	r := h.ns.NewRequest(PUT, "/instance/beat")
+	r.params.Set("namespaceId", h.ns.c.config.Namespace)
 	r.params.Set("serviceName", beat.serviceName)
 	r.params.Set("clusterName", beat.cluster)
 	r.params.Set("ip", beat.ip)
@@ -100,7 +101,7 @@ func (h *heartbeat) sendBeat(beat *beat) {
 			"beat": encode(beat),
 		}))
 	}
-	result, _ := callServer(h.nc.c, r)
+	result, _ := callServer(h.ns.c, r)
 	if result.Ok() {
 		var m = make(map[string]interface{})
 		json.Unmarshal([]byte(result.Data), &m)
@@ -117,7 +118,7 @@ func (h *heartbeat) sendBeat(beat *beat) {
 	// 	ins := NewInstance(beat.ip, beat.port, beat.weight, beat.cluster, beat.metadata)
 	// 	ins.ServiceName = beat.serviceName
 	// 	ins.Ephemeral = true
-	// 	h.nc.RegisterInstance(ins)
+	// 	h.ns.RegisterInstance(ins)
 	// } else {
 	// 	// TODO log error
 

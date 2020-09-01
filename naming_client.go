@@ -57,7 +57,7 @@ func (ns *namingClient) refreshSrvIfNeed() error {
 		return fmt.Errorf("Error while requesting: %s. Server returned: %s", ns.c.config.Endpoint, err)
 	}
 	var response Response
-	decode(resp, &response)
+	ns.c.decode(resp, &response)
 	if !response.Ok() {
 		return fmt.Errorf("Error while requesting: %s. Server returned: %s", ns.c.config.Endpoint, response.Message)
 	}
@@ -97,10 +97,6 @@ func (ns *namingClient) NewRequest(method, path string) *Request {
 	return r
 }
 
-func NewServiceInfo(name, groupName, clusters string) *ServiceInfo {
-	return &ServiceInfo{Name: name, GroupName: groupName, Clusters: clusters}
-}
-
 type Selector struct {
 	Type SelectorType `json:"type"`
 }
@@ -128,6 +124,10 @@ type ServiceInfo struct {
 	LastRefTime    int64
 	Checksum       string
 	AllIPs         bool
+}
+
+func NewServiceInfo(name, groupName, clusters string) *ServiceInfo {
+	return &ServiceInfo{Name: name, GroupName: groupName, Clusters: clusters}
 }
 
 func NewServiceInfoByKey(key string) *ServiceInfo {
@@ -206,7 +206,6 @@ func setServiceQueryOptions(r *Request, q ServiceQueryOptions) {
 }
 
 func setServiceOptions(r *Request, q *ServiceOptions) error {
-	r.header.Set("Content-Type", "application/x-www-form-urlencoded")
 	form := make(url.Values)
 	if q.ServiceName == "" {
 		return errors.New("ERR: serviceName is required")
